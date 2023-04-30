@@ -39,12 +39,16 @@ class Mapping_Net(nn.Module):
 
 class Generator(nn.Module):
     
-    def __init__(self, in_channels, out_channels, n_classes, t_size, mlp_dim=4, edge_importance_weighting=True, dataset='ntu', **kwargs):
+    def __init__(self, in_channels, out_channels, n_classes, t_size, mlp_dim=4, edge_importance_weighting=True, dataset='ntu', device="cpu", **kwargs):
         super().__init__()
 
         # load graph
         self.graph = graph_ntu() if dataset == 'ntu' else Graph_h36m()
-        self.A = [torch.tensor(Al, dtype=torch.float32, requires_grad=False).cuda() for Al in self.graph.As]
+        
+        if device == "cpu":
+            self.A = [torch.tensor(Al, dtype=torch.float32, requires_grad=False) for Al in self.graph.As]
+        else:
+            self.A = [torch.tensor(Al, dtype=torch.float32, requires_grad=False).cuda() for Al in self.graph.As]
 
         # build networks
         spatial_kernel_size  = [A.size(0) for A in self.A]
