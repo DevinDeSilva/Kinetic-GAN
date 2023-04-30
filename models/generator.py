@@ -41,6 +41,8 @@ class Generator(nn.Module):
     
     def __init__(self, in_channels, out_channels, n_classes, t_size, mlp_dim=4, edge_importance_weighting=True, dataset='ntu', device="cpu", **kwargs):
         super().__init__()
+        
+        self.device = device
 
         # load graph
         self.graph = graph_ntu() if dataset == 'ntu' else Graph_h36m()
@@ -58,13 +60,13 @@ class Generator(nn.Module):
 
         self.mlp = Mapping_Net(in_channels+n_classes, mlp_dim)
         self.st_gcn_networks = nn.ModuleList((
-            st_gcn(in_channels+n_classes, 512, kernel_size, 1, graph=self.graph, lvl=3, bn=False, residual=False, up_s=False, up_t=1, **kwargs),
-            st_gcn(512, 256, kernel_size, 1, graph=self.graph, lvl=3, up_s=False, up_t=int(t_size/16), **kwargs),
-            st_gcn(256, 128, kernel_size, 1, graph=self.graph, lvl=2, bn=False, up_s=True, up_t=int(t_size/16), **kwargs),
-            st_gcn(128, 64, kernel_size, 1, graph=self.graph, lvl=2, up_s=False, up_t=int(t_size/8), **kwargs),
-            st_gcn(64, 32, kernel_size, 1, graph=self.graph, lvl=1, bn=False, up_s=True, up_t=int(t_size/4), **kwargs),
-            st_gcn(32, out_channels, kernel_size, 1, graph=self.graph, lvl=1, up_s=False, up_t=int(t_size/2), **kwargs),
-            st_gcn(out_channels, out_channels, kernel_size, 1, graph=self.graph, lvl=0, bn=False, up_s=True, up_t=t_size, tan=True, **kwargs)
+            st_gcn(in_channels+n_classes, 512, kernel_size, 1, graph=self.graph, lvl=3, bn=False, residual=False, up_s=False, up_t=1,device=self.device, **kwargs),
+            st_gcn(512, 256, kernel_size, 1, graph=self.graph, lvl=3, up_s=False, up_t=int(t_size/16),device=self.device, **kwargs),
+            st_gcn(256, 128, kernel_size, 1, graph=self.graph, lvl=2, bn=False, up_s=True, up_t=int(t_size/16),device=self.device, **kwargs),
+            st_gcn(128, 64, kernel_size, 1, graph=self.graph, lvl=2, up_s=False, up_t=int(t_size/8),device=self.device, **kwargs),
+            st_gcn(64, 32, kernel_size, 1, graph=self.graph, lvl=1, bn=False, up_s=True, up_t=int(t_size/4),device=self.device, **kwargs),
+            st_gcn(32, out_channels, kernel_size, 1, graph=self.graph, lvl=1, up_s=False, up_t=int(t_size/2),device=self.device, **kwargs),
+            st_gcn(out_channels, out_channels, kernel_size, 1, graph=self.graph, lvl=0, bn=False, up_s=True, up_t=t_size, tan=True,device=self.device, **kwargs)
         ))
 
         # initialize parameters for edge importance weighting
@@ -99,7 +101,11 @@ class Generator(nn.Module):
         return x
 
     def truncate(self, w, mean, truncation):  # Truncation trick on W
-        t = Variable(torch.cuda.FloatTensor(np.random.normal(0, 1, (mean, *w.shape[1:]))))
+        if self.device == "cpu":
+            t = Variable(torch.cuda.FloatTensor(np.random.normal(0, 1, (mean, *w.shape[1:]))))
+        else:
+            t = Variable(torch.FloatTensor(np.random.normal(0, 1, (mean, *w.shape[1:]))))
+            
         w_m = []
         for i in t:
             w_m = self.mlp(i).unsqueeze(0) if len(w_m)==0 else torch.cat((w_m, self.mlp(i).unsqueeze(0)), dim=0)
@@ -125,8 +131,12 @@ class st_gcn(nn.Module):
                 residual=True,
                 up_s=False, 
                 up_t=64, 
-                tan=False):
+                tan=False,
+                device="cpu"
+                ):
         super().__init__()
+        
+        self.device = device
 
         assert len(kernel_size) == 2
         assert kernel_size[0][lvl] % 2 == 1
@@ -180,7 +190,11 @@ class st_gcn(nn.Module):
         x    = self.tcn(x) + res
         
         # Noise Inject
-        noise = torch.randn(x.size(0), 1, x.size(2), x.size(3), device='cuda:0')
+        if self.device == "cpu":
+            noise = torch.randn(x.size(0), 1, x.size(2), x.size(3), device='cpu')
+        else:
+            noise = torch.randn(x.size(0), 1, x.size(2), x.size(3), device='cuda:0')
+            
         x     = self.noise(x, noise)
 
         return self.tanh(x) if self.tan else self.l_relu(x), A
