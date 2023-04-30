@@ -102,9 +102,10 @@ class Generator(nn.Module):
 
     def truncate(self, w, mean, truncation):  # Truncation trick on W
         if self.device == "cpu":
-            t = Variable(torch.cuda.FloatTensor(np.random.normal(0, 1, (mean, *w.shape[1:]))))
-        else:
             t = Variable(torch.FloatTensor(np.random.normal(0, 1, (mean, *w.shape[1:]))))
+        else:
+            t = Variable(torch.cuda.FloatTensor(np.random.normal(0, 1, (mean, *w.shape[1:]))))
+            
             
         w_m = []
         for i in t:
