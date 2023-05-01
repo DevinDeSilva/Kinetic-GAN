@@ -40,7 +40,7 @@ class Mapping_Net(nn.Module):
 
 class Generator(nn.Module):
     
-    def __init__(self, in_channels, out_channels, n_classes, t_size, mlp_dim=4, edge_importance_weighting=True, dataset='ntu', device="cpu", **kwargs):
+    def __init__(self, in_channels, out_channels, t_size, mlp_dim=4, edge_importance_weighting=True, dataset='ntu', device="cpu", **kwargs):
         super().__init__()
         
         self.device = device
@@ -61,7 +61,7 @@ class Generator(nn.Module):
 
         self.mlp = Mapping_Net(in_channels, mlp_dim)
         self.st_gcn_networks = nn.ModuleList((
-            st_gcn(in_channels+n_classes, 512, kernel_size, 1, graph=self.graph, lvl=3, bn=False, residual=False, up_s=False, up_t=1,device=self.device, **kwargs),
+            st_gcn(in_channels, 512, kernel_size, 1, graph=self.graph, lvl=3, bn=False, residual=False, up_s=False, up_t=1,device=self.device, **kwargs),
             st_gcn(512, 256, kernel_size, 1, graph=self.graph, lvl=3, up_s=False, up_t=int(t_size/16),device=self.device, **kwargs),
             st_gcn(256, 128, kernel_size, 1, graph=self.graph, lvl=2, bn=False, up_s=True, up_t=int(t_size/16),device=self.device, **kwargs),
             st_gcn(128, 64, kernel_size, 1, graph=self.graph, lvl=2, up_s=False, up_t=int(t_size/8),device=self.device, **kwargs),
@@ -78,8 +78,6 @@ class Generator(nn.Module):
             ])
         else:
             self.edge_importance = [1] * len(self.st_gcn_networks)
-
-        self.label_emb = nn.Embedding(n_classes, n_classes)
         
 
     def forward(self, x, trunc=None):
