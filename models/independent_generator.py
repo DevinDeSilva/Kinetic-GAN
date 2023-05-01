@@ -38,7 +38,7 @@ class Mapping_Net(nn.Module):
         return self.mlp(x)
 
 
-class ClassIndepedentGenerator(nn.Module):
+class Generator(nn.Module):
     
     def __init__(self, in_channels, out_channels, n_classes, t_size, mlp_dim=4, edge_importance_weighting=True, dataset='ntu', device="cpu", **kwargs):
         super().__init__()
